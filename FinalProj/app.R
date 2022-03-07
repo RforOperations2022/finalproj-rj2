@@ -4,6 +4,7 @@ library(leaflet)
 library(plotly)
 library(ggplot2)
 library(data.table)
+library(leaflet.extras)
 
 
 #--------- Load Data ----------
@@ -32,15 +33,15 @@ ui <- fluidPage(
 
          selectInput(inputId = 'route',
                      label = 'Route:',
-                     choices = unique(data$ROUTE),
+                     choices = sort(unique(data$ROUTE)),
                      selected = "61D",
                      multiple = FALSE),
 
-         selectInput(inputId = 'stopName',
-                     label = 'Stop Name:',
-                     choices = unique(data$STOP_NAME),
-                     selected = "FORBES AVE AT MOREWOOD AVE F",
-                     multiple = TRUE),
+         sliderInput(inputId = 'traffic',
+                     label = 'Total traffic:',
+                     min = min(data$FY19_AVG_TOTAL),
+                     max = max(data$FY19_AVG_TOTAL),
+                     value = c(100, 300)),
 
          radioButtons(inputId = 'stopType',
                      label = 'Stop Type:',
@@ -62,8 +63,8 @@ ui <- fluidPage(
                      tabPanel('Barchart',
                               plotlyOutput('barchart')),
 
-                     tabPanel('Line Plot',
-                              plotlyOutput('lineplot')),
+                     tabPanel('Scatterplot',
+                              plotlyOutput('scatterplot')),
 
                      tabPanel('Data Table',
                               DT::dataTableOutput(outputId = 'datatable'))
@@ -81,7 +82,8 @@ server <- function(input, output) {
       data %>%
          filter(
             ROUTE %in% input$route &
-            STOP_NAME == input$stopName &
+            FY19_AVG_TOTAL >= input$traffic[1] &
+            FY19_AVG_TOTAL <= input$traffic[2] &
             STOP_TYPE == input$stopType
          )
    })
@@ -90,25 +92,24 @@ server <- function(input, output) {
    output$leaflet <- renderLeaflet({
       leaflet() %>%
          addProviderTiles("OpenStreetMap.Mapnik") %>%
-         setView(lng=-80, lat=40.44, zoom=10)
+         setView(lng=-79.95, lat=40.44, zoom=10.7)
 
    })
 
    # leafletProxy
    observe({
-      # data <- filterData()
-      if(input$selectMapType == "Points"){
+      if(input$mapType == "Points"){
          leafletProxy("leaflet", data = filterData()) %>%
             clearMarkers() %>%
             clearGroup("heat") %>%
-            addMarkers(lng = LONGITUDE, lat = LATITUDE)
+            addMarkers(lng = ~LONGITUDE, lat = ~LATITUDE)
 
       }else{
          leafletProxy("leaflet", data = filterData()) %>%
             clearMarkers() %>%
             clearGroup("heat") %>%
-            addHeatmap(group = "heat", lng = LONGITUDE,
-                       lat = LATITUDE, blur = 20, max = 0.08, radius = 15)
+            addHeatmap(group = "heat", lng = ~LONGITUDE,
+                       lat = ~LATITUDE, blur = 20, max = 0.08, radius = 15)
       }
    })
 
@@ -122,25 +123,30 @@ server <- function(input, output) {
 
       ggplot(data = t_summarizedData, aes(x = row.names(t_summarizedData), y = V1)) +
          geom_bar(stat="identity") +
-         labs(ylab = "Value", title = "Sum of average boardings and alightings for selected route")
+         labs(y = "Value", x = "", title = "Average boardings and alightings") +
+         theme_bw()
    })
 
 
-   # Lineplot
-   output$lineplot <- renderPlotly({
-      orderedData <- filterData()[order(filterData()$FY19_AVG_TOTAL, decreasing = TRUE),]
-      orderedData <- orderedData[1:5, ]
+   # Scatterplot
+   output$scatterplot <- renderPlotly({
+      orderedData <- filterData()[order(filterData()$FY19_AVG_TOTAL, decreasing = TRUE), ]
+      if (nrow(orderedData) >= 10) {
+         orderedData = orderedData[1:10, ]
+      }
 
-      ggplot(data = orderedData, aes(x=BUS_STOP, y=FY19_AVG_TOTAL)) +
-         geom_line() +
-         labs(xlab = "Bus Stop",
-              title = "Top 5 bus stops by total traffic for the specified route")
+      ggplot(data = orderedData, aes(x=STOP_NAME, y=FY19_AVG_TOTAL)) +
+         geom_point(size=1, color="red") +
+         geom_line(size=0.5, color="blue") +
+         labs(x = "Bus Stop", y="Average Traffic",
+              title = "Bus stops by total traffic (top 10 or less)") +
+         theme(axis.text.x = element_text(angle = 90, hjust = 2))
    })
 
 
    # Data table
    output$datatable <- DT::renderDataTable({
-      DT::datatable(data = filterData,
+      DT::datatable(data = filterData(),
                     options = list(pageLength = 10),
                     rownames = FALSE)
 
@@ -153,12 +159,12 @@ server <- function(input, output) {
          paste("data.csv")
       },
       content = function(filename) {
-         write.csv(filterData, filename)
+         write.csv(filterData(), filename)
       }
    )
 
 }
 
 
-# Run the application -----------------------------------------------
+#-------------- Run App ---------------
 shinyApp(ui = ui, server = server)
