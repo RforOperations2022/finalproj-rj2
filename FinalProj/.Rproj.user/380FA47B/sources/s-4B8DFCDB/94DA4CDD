@@ -1,0 +1,26 @@
+{
+    "id": "94DA4CDD",
+    "path": "~/CMU/Spring 2022/RShiny/finalproj-rj2/FinalProj/app.R",
+    "project_path": "app.R",
+    "type": "r_source",
+    "hash": "0",
+    "contents": "",
+    "dirty": true,
+    "created": 1646505706136.0,
+    "source_on_save": false,
+    "relative_order": 1,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "133,52",
+        "scrollLine": "122"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1646525554,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1646611486091,
+    "read_only": false,
+    "read_only_alternatives": []
+}
